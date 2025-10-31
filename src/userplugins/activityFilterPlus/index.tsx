@@ -8,7 +8,7 @@ import { definePluginSettings } from "@api/Settings";
 import { getUserSettingLazy } from "@api/UserSettings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Flex } from "@components/Flex";
-import { Switch } from "@components/settings/Switch";
+import { Switch } from "@components/Switch";
 import { Devs } from "@utils/constants";
 import { Margins } from "@utils/margins";
 import definePlugin, { OptionType } from "@utils/types";
@@ -64,7 +64,7 @@ function debounceRecalculate() {
     }, 100);
 }
 
-function ActivityToggleComponent() {
+function ActivityToggleComponent(props?: { setValue?: (value: any) => void; option?: any; }) {
     const [activities, setActivities] = useState<Activity[]>(() => {
         return getStoredActivities();
     });
@@ -80,34 +80,42 @@ function ActivityToggleComponent() {
 
     const detectCurrentActivities = () => {
         const detectedActivities: Activity[] = [];
-        
+
         try {
             const currentUser = UserStore.getCurrentUser();
             if (currentUser) {
                 const userActivities = PresenceStore.getActivities(currentUser.id);
-                
+
                 userActivities.forEach((activity: any) => {
                     const activityId = activity.application_id || activity.name;
                     if (activityId) {
                         const storedActivities = getStoredActivities();
                         const existingActivity = storedActivities.find(a => a.id === activityId);
-                        
+
                         detectedActivities.push({
                             id: activityId,
-                            name: activity.name || "Unknown Activity", 
+                            name: activity.name || "Unknown Activity",
                             type: activity.type || 0,
                             enabled: existingActivity ? existingActivity.enabled : true
                         });
                     }
                 });
-                
+
                 const runningGames = RunningGameStore.getRunningGames();
                 runningGames.forEach((game: any) => {
-                    const activityId = game.id || game.name;
+                    // Use exePath as primary ID for games if available (more unique)
+                    // Otherwise fall back to game.id or game.name
+                    const activityId = game.exePath || game.id || game.name;
                     if (activityId && !detectedActivities.some(a => a.id === activityId)) {
                         const storedActivities = getStoredActivities();
-                        const existingActivity = storedActivities.find(a => a.id === activityId);
-                        
+                        // Check for existing activity by this ID, or by alternative IDs (game.id, game.name, exePath)
+                        const existingActivity = storedActivities.find(a =>
+                            a.id === activityId ||
+                            a.id === game.id ||
+                            a.id === game.name ||
+                            a.id === game.exePath
+                        );
+
                         detectedActivities.push({
                             id: activityId,
                             name: game.name || "Unknown Game",
@@ -123,7 +131,7 @@ function ActivityToggleComponent() {
 
         // Preserve existing activities - never lose them
         const existingActivities = [...getStoredActivities()];
-        
+
         // Update existing activities with current status but preserve enabled state
         existingActivities.forEach(existing => {
             const currentActivity = detectedActivities.find(a => a.id === existing.id);
@@ -132,23 +140,23 @@ function ActivityToggleComponent() {
                 existing.type = currentActivity.type;
             }
         });
-        
+
         // Add new activities
-        const newActivities = detectedActivities.filter(detected => 
+        const newActivities = detectedActivities.filter(detected =>
             !existingActivities.some(existing => existing.id === detected.id)
         );
-        
+
         const allActivities = [...existingActivities, ...newActivities];
-        
+
         setActivities(allActivities);
         saveActivities(allActivities);
-        
+
         if (newActivities.length > 0) {
             showToast(`Added ${newActivities.length} new activities to permanent list!`, Toasts.Type.SUCCESS);
         } else {
             showToast("Activity list updated - no new activities found", Toasts.Type.SUCCESS);
         }
-        
+
         debounceRecalculate();
     };
 
@@ -163,7 +171,7 @@ function ActivityToggleComponent() {
         setActivities(updatedActivities);
         saveActivities(updatedActivities);
         debounceRecalculate();
-        
+
         const activity = updatedActivities.find(a => a.id === activityId);
         showToast(`${activity?.name} ${activity?.enabled ? 'enabled' : 'disabled'}`, Toasts.Type.SUCCESS);
     };
@@ -214,18 +222,18 @@ function ActivityToggleComponent() {
             if (currentUser) {
                 const userActivities = PresenceStore.getActivities(currentUser.id);
                 const runningIds = new Set();
-                
+
                 userActivities.forEach((activity: any) => {
                     const activityId = activity.application_id || activity.name;
                     if (activityId) runningIds.add(activityId);
                 });
-                
+
                 const runningGames = RunningGameStore.getRunningGames();
                 runningGames.forEach((game: any) => {
                     const activityId = game.id || game.name;
                     if (activityId) runningIds.add(activityId);
                 });
-                
+
                 return runningIds;
             }
         } catch (e) {
@@ -237,29 +245,23 @@ function ActivityToggleComponent() {
     const currentlyRunning = getCurrentlyRunningIds();
 
     return (
-        <Forms.FormSection>
-            <Forms.FormTitle tag="h3">Registered Activities</Forms.FormTitle>
-            <Forms.FormText className={Margins.bottom8} type={Forms.FormText.Types.DESCRIPTION}>
-                List of detected activities.
-            </Forms.FormText>
-            <Forms.FormText className={Margins.bottom8} type={Forms.FormText.Types.DESCRIPTION}>
-                Toggle to show/hide on your status.
-            </Forms.FormText>
-            
+        <section>
+            <Forms.FormTitle tag="h5">Detected Activities</Forms.FormTitle>
+
             <Button
                 onClick={detectCurrentActivities}
                 color={Button.Colors.BRAND}
                 size={Button.Sizes.SMALL}
                 style={{ marginBottom: "12px" }}
             >
-                Detect Activities
+                Detect
             </Button>
 
             {activities.length === 0 ? (
-                <Forms.FormText type={Forms.FormText.Types.DESCRIPTION} style={{ fontStyle: "italic", marginTop: "8px" }}>
-                    No activities detected yet. Run some games or applications, then click "Detect Activities".
+                <Forms.FormText style={{ fontStyle: "italic", marginTop: "8px" }}>
+                    No activities detected yet.
                 </Forms.FormText>
-                
+
             ) : (
                 <div style={{ marginTop: "12px" }}>
                     {activities.map(activity => (
@@ -281,12 +283,12 @@ function ActivityToggleComponent() {
                                     {getActivityTypeEmoji(activity.type)}
                                 </span>
                                 <div style={{ flex: 1 }}>
-                                    <div style={{ 
+                                    <div style={{
                                         fontWeight: "500",
                                         color: "white",
-                                        display: "flex", 
-                                        alignItems: "center", 
-                                        gap: "8px" 
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "8px"
                                     }}>
                                         {activity.name}
                                         {currentlyRunning.has(activity.id) && (
@@ -302,8 +304,8 @@ function ActivityToggleComponent() {
                                             </span>
                                         )}
                                     </div>
-                                    <div style={{ 
-                                        fontSize: "12px", 
+                                    <div style={{
+                                        fontSize: "12px",
                                         color: "var(--text-muted)",
                                         marginTop: "2px"
                                     }}>
@@ -313,13 +315,12 @@ function ActivityToggleComponent() {
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                 <Switch
-                                    value={activity.enabled}
-                                    onChange={() => toggleActivity(activity.id)}
                                     checked={activity.enabled}
+                                    onChange={(_checked: boolean) => toggleActivity(activity.id)}
                                 />
                                 <Button
                                     color={Button.Colors.RED}
-                                    size={Button.Sizes.TINY}
+                                    size={Button.Sizes.SMALL}
                                     onClick={() => removeActivity(activity.id)}
                                 >
                                     ×
@@ -329,11 +330,11 @@ function ActivityToggleComponent() {
                     ))}
                 </div>
             )}
-            
+
             {activities.length > 0 && (
                 <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
                     <Button
-                        color={Button.Colors.YELLOW}
+                        color={Button.Colors.PRIMARY}
                         size={Button.Sizes.SMALL}
                         onClick={clearAllActivities}
                     >
@@ -367,7 +368,7 @@ function ActivityToggleComponent() {
                     </Button>
                 </div>
             )}
-        </Forms.FormSection>
+        </section>
     );
 }
 
@@ -378,85 +379,97 @@ const settings = definePluginSettings({
     },
     hidePlayingActivities: {
         type: OptionType.BOOLEAN,
-        description: "Hide all playing activities (games and applications)",
+        description: "",
         default: false,
         onChange: debounceRecalculate
     },
     hideStreamingActivities: {
         type: OptionType.BOOLEAN,
-        description: "Hide all streaming activities",
+        description: "",
         default: false,
         onChange: debounceRecalculate
     },
     hideListeningActivities: {
         type: OptionType.BOOLEAN,
-        description: "Hide all listening activities (Spotify, etc.)",
+        description: "",
         default: false,
         onChange: debounceRecalculate
     },
     hideWatchingActivities: {
         type: OptionType.BOOLEAN,
-        description: "Hide all watching activities",
+        description: "",
         default: false,
         onChange: debounceRecalculate
     },
     hideCustomStatus: {
         type: OptionType.BOOLEAN,
-        description: "Hide custom status messages",
+        description: "",
         default: false,
         onChange: debounceRecalculate
     },
     hideCompetingActivities: {
         type: OptionType.BOOLEAN,
-        description: "Hide all competing activities",
+        description: "",
         default: false,
         onChange: debounceRecalculate
     },
+    /*     
     activitiesData: {
         type: OptionType.STRING,
+        description: "",
         default: ""
-    }
+    } */
 });
 
 function isActivityNotIgnored(props: { type: number; application_id?: string; name?: string; }) {
     // Check if activity type is globally hidden (these override individual settings)
     switch (props.type) {
-        case 0: 
+        case 0:
             if (settings.store.hidePlayingActivities) return false;
             break;
-        case 1: 
+        case 1:
             if (settings.store.hideStreamingActivities) return false;
             break;
-        case 2: 
+        case 2:
             if (settings.store.hideListeningActivities) return false;
             break;
-        case 3: 
+        case 3:
             if (settings.store.hideWatchingActivities) return false;
             break;
-        case 4: 
+        case 4:
             if (settings.store.hideCustomStatus) return false;
             break;
-        case 5: 
+        case 5:
             if (settings.store.hideCompetingActivities) return false;
             break;
     }
 
     // Only check individual activity settings if global setting for this type is not enabled
     const storedActivities = getStoredActivities();
-    
+
+    // First check by application_id if available
     if (props.application_id != null) {
         const activity = storedActivities.find(a => a.id === props.application_id);
         if (activity && !activity.enabled) return false;
-    } else {
-        // Fallback to name matching for activities without application_id
+    }
+
+    // Also check by name (for activities without application_id or as fallback)
+    if (props.name != null) {
         const activity = storedActivities.find(a => a.id === props.name);
         if (activity && !activity.enabled) return false;
-        
-        // Also check running games by exePath
+    }
+
+    // For games (type 0), also check by exePath
+    if (props.type === 0) {
         try {
-            const exePath = RunningGameStore.getRunningGames().find(game => game.name === props.name)?.exePath;
-            if (exePath) {
-                const activity = storedActivities.find(a => a.id === exePath);
+            const runningGames = RunningGameStore.getRunningGames();
+            const matchingGame = runningGames.find(game =>
+                (props.application_id && game.id === props.application_id) ||
+                (props.name && game.name === props.name)
+            );
+
+            if (matchingGame?.exePath) {
+                const activity = storedActivities.find(a => a.id === matchingGame.exePath);
                 if (activity && !activity.enabled) return false;
             }
         } catch (e) {
@@ -470,7 +483,7 @@ function isActivityNotIgnored(props: { type: number; application_id?: string; na
 export default definePlugin({
     name: "ActivityFilterPlus",
     authors: [Devs.bloom62],
-    description: "Enhanced activity filtering for each detected activity",
+    description: "",
     dependencies: ["UserSettingsAPI"],
 
     settings,
@@ -495,12 +508,12 @@ export default definePlugin({
         {
             find: '"PresenceStore"',
             replacement: {
-                match: /(getActivities\(\).+?return )(.+?)(;)/,
+                match: /(getActivities\(\).+?return\s+)(.+?)(\s*;)/,
                 replace: (m, prefix, activities, suffix) => `${prefix}${activities}.filter($self.isActivityNotIgnored)${suffix}`
             }
         },
         {
-            find: /\.activities\s*=\s*(\i)\.activities/,
+            find: ".activities=",
             replacement: {
                 match: /\.activities\s*=\s*(\i)\.activities/,
                 replace: (m, presence) => `.activities=${presence}.activities?.filter($self.isActivityNotIgnored)||[]`
@@ -513,7 +526,7 @@ export default definePlugin({
         if (!settings.store.activitiesData) {
             settings.store.activitiesData = "";
         }
-        
+
         // Force presence update when plugin starts
         setTimeout(() => {
             try {
