@@ -6,6 +6,7 @@
 
 import { definePluginSettings } from "@api/Settings";
 import { getUserSettingLazy } from "@api/UserSettings";
+import { Button } from "@components/Button";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Flex } from "@components/Flex";
 import { Switch } from "@components/Switch";
@@ -13,7 +14,7 @@ import { Devs } from "@utils/constants";
 import { Margins } from "@utils/margins";
 import definePlugin, { OptionType } from "@utils/types";
 import { findStoreLazy } from "@webpack";
-import { Button, Forms, showToast, Toasts, useState, React } from "@webpack/common";
+import { Forms, showToast, Toasts, useState, React } from "@webpack/common";
 
 interface Activity {
     id: string;
@@ -250,8 +251,8 @@ function ActivityToggleComponent(props?: { setValue?: (value: any) => void; opti
 
             <Button
                 onClick={detectCurrentActivities}
-                color={Button.Colors.BRAND}
-                size={Button.Sizes.SMALL}
+                variant="primary"
+                size="small"
                 style={{ marginBottom: "12px" }}
             >
                 Detect
@@ -319,8 +320,8 @@ function ActivityToggleComponent(props?: { setValue?: (value: any) => void; opti
                                     onChange={(_checked: boolean) => toggleActivity(activity.id)}
                                 />
                                 <Button
-                                    color={Button.Colors.RED}
-                                    size={Button.Sizes.SMALL}
+                                    variant="dangerPrimary"
+                                    size="small"
                                     onClick={() => removeActivity(activity.id)}
                                 >
                                     ×
@@ -334,15 +335,15 @@ function ActivityToggleComponent(props?: { setValue?: (value: any) => void; opti
             {activities.length > 0 && (
                 <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
                     <Button
-                        color={Button.Colors.PRIMARY}
-                        size={Button.Sizes.SMALL}
+                        variant="secondary"
+                        size="small"
                         onClick={clearAllActivities}
                     >
                         Clear
                     </Button>
                     <Button
-                        color={Button.Colors.GREEN}
-                        size={Button.Sizes.SMALL}
+                        variant="positive"
+                        size="small"
                         onClick={() => {
                             const updatedActivities = activities.map(a => ({ ...a, enabled: true }));
                             setActivities(updatedActivities);
@@ -354,8 +355,8 @@ function ActivityToggleComponent(props?: { setValue?: (value: any) => void; opti
                         Show All
                     </Button>
                     <Button
-                        color={Button.Colors.RED}
-                        size={Button.Sizes.SMALL}
+                        variant="dangerPrimary"
+                        size="small"
                         onClick={() => {
                             const updatedActivities = activities.map(a => ({ ...a, enabled: false }));
                             setActivities(updatedActivities);
