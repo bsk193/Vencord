@@ -616,7 +616,7 @@ export const Devs = /* #__PURE__*/ Object.freeze({
     vv: {
         name: "VV",
         id: 254866377087778816n
-    }
+    },
     bloom62: {
         name: "bloom62",
         id: 967016160291856454n
